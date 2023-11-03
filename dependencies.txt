@@ -1,0 +1,6 @@
+argparse
+numpy
+torch==1.13.1+cu117
+tqdm
+transformers==4.30.2
+tokenizers==0.11.1
