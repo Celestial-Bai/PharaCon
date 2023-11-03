@@ -1,6 +1,6 @@
 # INHERIT\_cBERT: A new framework for identifying bacteriophages via conditional representation learning
 
-![Pipeline_new](https://github.com/Celestial-Bai/INHERIT_cBERT/blob/master/pipeline.jpg)This repository includes the implementation of "INHERIT\_cBERT: A new framework for identifying bacteriophages via conditional representation learning". You can train conditional BERT and use INHERIT_cBERT to identify phages with this repository.
+![Pipeline](https://github.com/Celestial-Bai/INHERIT_cBERT/blob/master/pipeline.jpg)This repository includes the implementation of "INHERIT\_cBERT: A new framework for identifying bacteriophages via conditional representation learning". You can train conditional BERT and use INHERIT_cBERT to identify phages with this repository.
 
 We are still developing this package and we will also try to make some improvements of it, so feel free to report to us if there are any issues occurred. We keep updating for exploring better performance and more convenient utilization.
 
