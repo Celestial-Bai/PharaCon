@@ -1,6 +1,6 @@
-# INHERIT\_cBERT: A new framework for identifying bacteriophages via conditional representation learning
+# PharaCon: a new framework for identifying bacteriophages via conditional representation learning 
 
-![Pipeline](https://github.com/Celestial-Bai/PharaCon/blob/main/pipeline.png)This repository includes the implementation of "PharaCon: a new framework for identifying bacteriophages via conditional representation learning ". You can train conditional BERT and use PharaCon to identify phages with this repository.
+![Pipeline](https://github.com/Celestial-Bai/PharaCon/blob/main/pipeline.jpg)This repository includes the implementation of "PharaCon: a new framework for identifying bacteriophages via conditional representation learning ". You can train conditional BERT and use PharaCon to identify phages with this repository.
 
 We are still developing this package and we will also try to make some improvements of it, so feel free to report to us if there are any issues occurred. We keep updating for exploring better performance and more convenient utilization.
 
@@ -35,7 +35,7 @@ tokenizers==0.11.1
 
 ## Pre-training
 
-There are 2 steps to pre-train a conditional BERT. Here is the sample script you can use:
+Here is the sample script you can use:
 
 Step 1:
 
@@ -74,46 +74,11 @@ python3 run_pretrain_conditional_step1.py \
     --n_process 32
 ```
 
-Step 2:
 
-```
-#$ -l a100=4,s_vmem=500G
-export KMER=6
-export TRAIN_FILE=DATA_PATH
-export SOURCE=SOURCE_PATH
-export OUTPUT_PATH=OUTPUT_PATH
-
-python3 run_pretrain_conditional_step2.py \
-    --output_dir $OUTPUT_PATH \
-    --model_type=dna \
-    --tokenizer_name=bert-config-$KMER-conditional\
-    --config_name=$SOURCE/bert-config-$KMER-conditional/config.json \
-    --do_train \
-    --train_data_file=$TRAIN_FILE \
-    --mlm \
-    --gradient_accumulation_steps 2 \
-    --per_gpu_train_batch_size 32 \
-    --save_steps 500 \
-    --save_total_limit 20 \
-    --max_steps 200000 \
-    --logging_steps 500 \
-    --line_by_line \
-    --learning_rate 5e-5 \
-    --block_size 512 \
-    --adam_epsilon 1e-6 \
-    --weight_decay 0.001 \
-    --beta1 0.9 \
-    --beta2 0.98 \
-    --seed 123 \
-    --mlm_probability 0.025 \
-    --warmup_steps 5000 \
-    --overwrite_output_dir \
-    --n_process 32
-```
 
 Our pre-trained model can be downloaded from:
 
-[Step 1](https://drive.google.com/drive/folders/1XVbWUr9edc6vetOG0y-YtwTDEP53CD2G?usp=sharing), and [Step 2](https://drive.google.com/drive/folders/1_kq4288kg00wi1vGzkfdd9hYDccmAThc?usp=sharing)
+[Step 1](https://drive.google.com/drive/folders/1XVbWUr9edc6vetOG0y-YtwTDEP53CD2G?usp=sharing)
 
 ## Predict 
 
