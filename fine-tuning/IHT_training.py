@@ -5,7 +5,7 @@ from basicsetting import *
 from readfasta import *
 from INHERITModels import *
 from Dataset_config import *
-from IHT_config import *
+from IHT_config_gvd_lstmv1_new import *
 import math
 import matplotlib.pyplot as plt
 from sophia import SophiaG
@@ -25,28 +25,40 @@ if __name__ == '__main__':
     args = PARSER.parse_args()
 
     ##### Hyperparamters: in Network_config #####
-    pid = 'checkpoints_conditional_BERT_base_1103_lr1e-5_gvd'
+    pid = 'checkpoints'
     path = os.getcwd() + "/" + str(pid)
     if os.path.exists(path) is False:
         os.makedirs(path)
     config = BertConfig.from_pretrained(CONFIG_PATH)
-    early_stopping = EarlyStopping_acc(checkpoint = pid + '/' + 'bestacc_' + args.outdir, patience=PATIENCE, verbose=True)
+    early_stopping = EarlyStopping(checkpoint = pid + '/' + 'bestvalloss_' + args.outdir, patience=5, verbose=True)
     tokenizer = DNATokenizer.from_pretrained(CONFIG_PATH)
     X_bac_tr = read_fasta(open(BAC_TR_PATH), KMERS, SEGMENT_LENGTH)
     X_pha_tr = read_fasta(open(PHA_TR_PATH), KMERS, SEGMENT_LENGTH)
-    X_train = X_pha_tr + X_bac_tr
-    y_train = torch.cat((torch.ones(len(X_pha_tr)), torch.zeros(len(X_bac_tr))))
+    tokenizer.cls_token = '[BAC]'
+    bac_baclab_examples = tokenizer.batch_encode_plus(X_bac_tr, add_special_tokens=True)["input_ids"]
+    pha_baclab_examples = tokenizer.batch_encode_plus(X_pha_tr, add_special_tokens=True)["input_ids"]
+    tokenizer.cls_token = '[PHA]'
+    bac_phalab_examples = tokenizer.batch_encode_plus(X_bac_tr, add_special_tokens=True)["input_ids"]
+    pha_phalab_examples = tokenizer.batch_encode_plus(X_pha_tr, add_special_tokens=True)["input_ids"]
+    X_train = bac_baclab_examples + pha_phalab_examples + pha_baclab_examples + bac_phalab_examples
+    y_train = torch.cat((torch.zeros(len(bac_baclab_examples)), torch.ones(len(pha_phalab_examples)), torch.tensor([2]*(len(pha_baclab_examples)+ len(bac_phalab_examples))))) 
     y_train = y_train.to(torch.long).unsqueeze(1)
     X_bac_val = read_fasta(open(BAC_VAL_PATH), KMERS, SEGMENT_LENGTH)
     X_pha_val = read_fasta(open(PHA_VAL_PATH), KMERS, SEGMENT_LENGTH)
-    X_val = X_pha_val + X_bac_val
-    y_val = torch.cat((torch.ones(len(X_pha_val)), torch.zeros(len(X_bac_val))))
+    tokenizer.cls_token = '[BAC]'
+    bac_baclab_val_examples = tokenizer.batch_encode_plus(X_bac_val, add_special_tokens=True)["input_ids"]
+    pha_baclab_val_examples = tokenizer.batch_encode_plus(X_pha_val, add_special_tokens=True)["input_ids"]
+    tokenizer.cls_token = '[PHA]'
+    bac_phalab_val_examples = tokenizer.batch_encode_plus(X_bac_val, add_special_tokens=True)["input_ids"]
+    pha_phalab_val_examples = tokenizer.batch_encode_plus(X_pha_val, add_special_tokens=True)["input_ids"]
+    X_val = bac_baclab_val_examples + pha_phalab_val_examples + pha_baclab_val_examples + bac_phalab_val_examples
+    y_val = torch.cat((torch.zeros(len(bac_baclab_val_examples)), torch.ones(len(pha_phalab_val_examples)), torch.tensor([2]*(len(pha_baclab_val_examples)+ len(bac_phalab_val_examples))))) 
     y_val = y_val.to(torch.long).unsqueeze(1)
-    train_data = IHTDataset(X_seq=X_train, y=y_train, tokenizer=tokenizer)
+    train_data = cond_IHTDataset(x=torch.tensor(X_train), y=y_train)
     train_loader = DataLoader(train_data, batch_size=TR_BATCHSIZE, shuffle=True, num_workers=TR_WORKERS)
-    val_data = IHTDataset(X_seq=X_val, y=y_val, tokenizer=tokenizer)
+    val_data = cond_IHTDataset(x=torch.tensor(X_val), y=y_val)
     val_loader = DataLoader(val_data, batch_size=VAL_BATCHSIZE, shuffle=True, num_workers=VAL_WORKERS)
-    bertmodel = Baseline_DNABERT(freeze_bert=False, config=config, bert_dir = args.bertdir)
+    bertmodel = Baseline_conditional_BERT(freeze_bert=False, config=config, bert_dir = args.bertdir)
     bert_params = list(map(id, bertmodel.bert.parameters()))
     new_params = filter(lambda p: id(p) not in bert_params, bertmodel.parameters())
     opt = torch.optim.Adam([{'params': bertmodel.bert.parameters(), 'lr': LEARNING_RATE},
@@ -58,7 +70,7 @@ if __name__ == '__main__':
         bertmodel.load_state_dict(sdict)
     bertmodel.to(device)
     sigmoid = torch.nn.Sigmoid()
-    loss_func = torch.nn.BCEWithLogitsLoss()
+    loss_func = torch.nn.CrossEntropyLoss()
     print("The checkpoints will be in: " + path)
     print("start to train")
     train_loss_value=[]
@@ -75,25 +87,25 @@ if __name__ == '__main__':
         with tqdm(total=100) as pbar:
             batchsize = TR_BATCHSIZE
             for i, (x, y) in enumerate(train_loader):
-                X_seq = BatchEncoding(x)
-                X_seq['input_ids'][:, :, 0] = tokenizer.convert_tokens_to_ids(tokenizer.mask_token)
+                #torch.save(x, 'x_sample.pt')
+                X_seq = x
                 X_seq = X_seq.to(device)
                 #torch.save(X_seq, 'A.pt')
                 Label = Variable(y)
                 Label = Label.squeeze(0)
-                Label = Label.to(device)
+                Label = Label.squeeze(1).to(device)
                 opt.zero_grad()
-                #out = bertmodel(input_ids=X_seq['input_ids'].squeeze(1), token_type_ids=X_seq['token_type_ids'].squeeze(1), attention_mask=X_seq['attention_mask'].squeeze(1))
-                out = bertmodel(input_ids=X_seq['input_ids'].squeeze(1))
-                loss = loss_func(out, Label.to(torch.float32))
+                out = bertmodel(input_ids=X_seq)
+                #out = bertmodel(input_ids=X_seq['input_ids'].squeeze(1))
+                loss = loss_func(out, Label.to(torch.long))
                 loss.backward()
                 opt.step()
                 # print statistics
                 running_loss += loss.item()
-                out = sigmoid(out)
-                predicted = torch.round_(out)
+                o1 = torch.argmax(out.softmax(dim=-1), dim=1).unsqueeze(1)
+                predicted = torch.round_(o1)
                 sum_total += Label.size(0)
-                sum_correct += (predicted == Label).sum().item()
+                sum_correct += (predicted == Label.unsqueeze(1)).sum().item()
                 pbar.update(100 * batchsize / t)
             pbar.close()
         print("epochs={}, mean loss={}, accuracy={}"
@@ -106,20 +118,19 @@ if __name__ == '__main__':
         sum_correct = 0
         sum_total = 0
         for i, (x, y) in enumerate(val_loader):
-            X_seq = BatchEncoding(x)
+            X_seq = x
             X_seq = X_seq.to(device)
-            X_seq['input_ids'][:, :, 0] = tokenizer.convert_tokens_to_ids(tokenizer.mask_token)
             Label = Variable(y)
             Label = Label.squeeze(0)
-            Label = Label.to(device)
-            #val_output = bertmodel(input_ids=X_seq['input_ids'].squeeze(1), token_type_ids=X_seq['token_type_ids'].squeeze(1), attention_mask=X_seq['attention_mask'].squeeze(1))
-            val_output = bertmodel(input_ids=X_seq['input_ids'].squeeze(1))
-            loss = loss_func(val_output, Label.to(torch.float32))
+            Label = Label.squeeze(1).to(device)
+            val_output = bertmodel(input_ids=X_seq)
+            #val_output = bertmodel(input_ids=X_seq['input_ids'].squeeze(1))
+            loss = loss_func(val_output, Label.to(torch.long))
             valrun_loss += loss.item()
-            val_output = sigmoid(val_output)
-            predicted = torch.round_(val_output)
+            val_o1 = torch.argmax(val_output.softmax(dim=-1), dim=1).unsqueeze(1)
+            predicted = torch.round_(val_o1)
             sum_total += Label.size(0)
-            sum_correct += (predicted == Label).sum().item()
+            sum_correct += (predicted == Label.unsqueeze(1)).sum().item()
         val_acc = float(sum_correct / sum_total)
         print("epochs={}, val loss={}, val accuracy={}"
             .format(epoch + 1, valrun_loss * batchsize / t, float(sum_correct / sum_total)))
@@ -134,7 +145,7 @@ if __name__ == '__main__':
         plt.xlabel(u"Epochs")
         plt.ylabel("Loss")
         plt.title("Loss plot")
-        plt.savefig("Lossplot_conditional_BERT_base_1103_lr1e-5_gvd.png")
+        plt.savefig("Lossplot_conditional_bert_base_lstmv1_new_new_0522_lr5e-6_gvd.png")
         plt.cla()
         plt.plot(range(1,len(train_acc_value) + 1), train_acc_value, marker='o', mec='r', mfc='w', label=u'Training Accuracy')
         plt.plot(range(1,len(train_acc_value) + 1), val_acc_value, marker='*', ms=10, label=u'Validation Accuracy')
@@ -145,10 +156,11 @@ if __name__ == '__main__':
         plt.xlabel(u"Epochs")
         plt.ylabel("Accuracy")
         plt.title("Accuracy plot")
-        plt.savefig("Accplot_conditional_BERT_base_1103_lr1e-5_gvd.png")
+        plt.savefig("Accplot_conditional_bert_base_lstmv1_new_new_0522_lr5e-6_gvd.png")
         torch.save(bertmodel.state_dict(), pid + '/' + 'checkpoint_' + str(epoch) + '_' + args.outdir)
-        early_stopping(val_acc, bertmodel)
+        early_stopping(valrun_loss * batchsize / t, bertmodel)
         if early_stopping.early_stop:
             print("Early stopping")
             break
     torch.save(bertmodel.state_dict(), args.outdir)
+

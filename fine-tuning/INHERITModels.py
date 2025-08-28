@@ -80,5 +80,26 @@ class Baseline_IHT(torch.nn.Module):
         out = self.regressor(cls)
         return out
 
+class Baseline_conditional_BERT(torch.nn.Module):
+    '''INHERIT: with two pre-trained models'''
+    def __init__(self, config, freeze_bert=True, bert_dir=''):
+        super(Baseline_conditional_BERT, self).__init__()
+        if bert_dir == '':
+            self.bert = BertModel(config=config)
+        else:
+            self.bert = BertModel.from_pretrained(bert_dir)
+        if freeze_bert:
+            self.bert.requires_grad_(False)
+        self.lstm = torch.nn.LSTM(input_size=768, hidden_size=384, batch_first=True, bidirectional=True)
+        self.regressor = torch.nn.Sequential(
+            torch.nn.Linear(768, 768),
+            torch.nn.Tanh(),
+            torch.nn.Linear(768, 3)
+        )
 
+    def forward(self, input_ids):
+        bert_output = self.bert(input_ids=input_ids)['last_hidden_state']
+        rep, _ = self.lstm(bert_output)
+        out = self.regressor(rep[:, -1, :])
+        return out
 
