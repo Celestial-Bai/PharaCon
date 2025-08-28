@@ -1,14 +1,14 @@
 # INHERIT\_cBERT: A new framework for identifying bacteriophages via conditional representation learning
 
-![Pipeline](https://github.com/Celestial-Bai/INHERIT_cBERT/blob/main/pipeline.jpg)This repository includes the implementation of "INHERIT\_cBERT: A new framework for identifying bacteriophages via conditional representation learning". You can train conditional BERT and use INHERIT_cBERT to identify phages with this repository.
+![Pipeline](https://github.com/Celestial-Bai/PharaCon/blob/main/pipeline.png)This repository includes the implementation of "PharaCon: a new framework for identifying bacteriophages via conditional representation learning ". You can train conditional BERT and use PharaCon to identify phages with this repository.
 
 We are still developing this package and we will also try to make some improvements of it, so feel free to report to us if there are any issues occurred. We keep updating for exploring better performance and more convenient utilization.
 
 ## Installation
 
 ```
-git clone https://github.com/Celestial-Bai/INHERIT_cBERT.git
-cd INHERIT_cBERT
+git clone https://github.com/Celestial-Bai/PharaCon.git
+cd PharaCon
 pip install -r dependencies.txt
 ```
 
@@ -127,19 +127,18 @@ You can simply used：
 python3 IHT_predict.py --sequence test.fasta --withpretrain False --model FINETUNED_MODEL --out test_out.txt
 ```
 
-
-## 
-
 ## Fine-tuning
 
 If you want to fine-tune the conditional BERT, here we give the example on fine-tuning for phage identification:
 
 ```
-python3 --bertdir PRETRAINED_MODEL --outdir MODEL_NAME
+python3 IHT_training.py --bertdir PRETRAINED_MODEL --outdir MODEL_NAME
 ```
 
 
-## 
+## Dataset
+
+You can find our bacterial sequence dataset sampled from UHGG and the GVD database and CHVD database from: [dataset](https://drive.google.com/drive/folders/1jDH3aj35Dh-vPM3XUsN_8Q-MDIhAJPMd?usp=sharing). You can get our metagenomic contig dataset by following the instructions from our paper.
 
 
 
